@@ -28,16 +28,31 @@ object App {
       .drop("Year", "ArrTime", "ActualElapsedTime", "AirTime", "TaxiIn", "Diverted", "CarrierDelay","TailNum", "WeatherDelay", "NASDelay", "SecurityDelay", "LateAircraftDelay")
       .drop( "CancellationCode")
       .drop("DepTime", "CRSArrTime")
-      .withColumn("CRSElapsedTime", col("CRSElapsedTime").cast("Double"))
-      .withColumn("DepDelay", col("DepDelay").cast("Double"))
-      .withColumn("Distance", col("Distance").cast("Double"))
-      .withColumn("TaxiOut", col("TaxiOut").cast("Double"))
-    val df2 = df.filter(df.col("Cancelled") < 1).filter(df.col("ArrDelay") =!= "NA").drop("Cancelled")
+      df.show
+    val df2 = df.filter(df.col("ArrDelay") =!= "NA")
+                .filter(df.col("Month") =!= "NA")
+                .filter(df.col("DayofMonth") =!= "NA")
+                .filter(df.col("DayOfWeek") =!= "NA")
+                .filter(df.col("CRSDepTime") =!= "NA")
+                .filter(df.col("UniqueCarrier") =!= "NA")
+                .filter(df.col("FlightNum") =!= "NA")
+                .filter(df.col("CRSElapsedTime") =!= "NA")
+                .filter(df.col("DepDelay") =!= "NA")
+                .filter(df.col("Origin") =!= "NA")
+                .filter(df.col("Dest") =!= "NA")
+                .filter(df.col("Distance") =!= "NA")
+                .filter(df.col("TaxiOut") =!= "NA")
+                .filter(df.col("Cancelled") =!= "NA")
+                .filter(df.col("Cancelled") < 1)
+                .drop("Cancelled")
+   
+   
     val take2First = udf { (CRSDepTime: String) =>
       if (CRSDepTime.length < 3) "00" else if (CRSDepTime.length == 3) CRSDepTime.substring(0, 1) else CRSDepTime.substring(0, 2)
     }
     val df1 = df2.withColumn("CRSDepTime", take2First(df2("CRSDepTime")))
-
+     
+    
     df1.createOrReplaceTempView("Delay")
 
 
@@ -84,12 +99,28 @@ object App {
     val indexed7 = indexer7.fit(indexed6).transform(indexed6)
     val indexed = indexer8.fit(indexed7).transform(indexed7)
 
-    indexed.printSchema()
-
+    
+    
     //ArrDelay placé à la fin (attention pas echangé mais après CRSElapsedTime il y a DepDelay
     val rdd_ml = indexed.rdd.map((x:Row) => {
-      Row(x.getAs[Double](14),x.getAs[Double](15),x.getAs[Double](16),x.getAs[Double](17),x.getAs[Double](13),x.getAs[Double](6),x.getAs[Double](8),x.getAs[Double](19),x.getAs[Double](20),x.getAs[Double](11),x.getAs[Double](12),x.getAs[Double](13), x.getAs[Double](7))
+      val month = x.getAs[Double](15);
+      val day_of_month = x.getAs[Double](16);
+      val day_of_week = x.getAs[Double](17);
+      val CRSDepTime = x.getAs[Double](18);
+      val UC = x.getAs[Double](14);
+      val FlightNum = x.getAs[Double](19);
+      val CRSElapsedTime = x.getAs[String](6).toDouble;
+      val DepDelay = x.getAs[String](8).toDouble;
+      val Origin = x.getAs[Double](20);
+      val Dest = x.getAs[Double](21);
+      val Distance = x.getAs[String](11).toDouble;
+      val TaxiOut = x.getAs[String](12).toDouble;
+      val mean_delay_per_hour = x.getAs[Double](13);
+      val ArrDelay = x.getAs[String](7).toDouble;
+      Row(month,day_of_month,day_of_week,CRSDepTime,UC,FlightNum,CRSElapsedTime,DepDelay,Origin,Dest,Distance,TaxiOut,mean_delay_per_hour, ArrDelay)
     })
+    
+    rdd_ml.take(20).foreach(println)
 
     val labeledPoints = rdd_ml.map((x:Row) => LabeledPoint(x.toSeq.last.toString.toDouble,Vectors.dense(x.toSeq.init.toArray.map(_.toString.toDouble))))
 
@@ -97,6 +128,8 @@ object App {
     val numofCRSDepTime = df1.select("CRSDepTime").distinct.count.toInt
     val numOfUC = df1.select("UniqueCarrier").distinct.count.toInt
     val numofOriginDest = df1.select("Origin").distinct.count.toInt
+    val numOfFlightNum = df1.select("FlightNum").distinct.count.toInt
+    
 
     val featureSubsetStrategy = "auto"
     val impurity = "variance"
@@ -104,7 +137,7 @@ object App {
     val maxBins = 2700
     val seed = 5043
 
-    val categoricalFeaturesInfo: Map[Int, Int] = Map((0,12),(1,31),(2,7),(3,numofCRSDepTime),(4,numOfUC),(7,numofOriginDest),(8,numofOriginDest))
+    val categoricalFeaturesInfo: Map[Int, Int] = Map((0,12),(1,31),(2,7),(3,numofCRSDepTime),(4,numOfUC),(5,numOfFlightNum),(8,numofOriginDest),(9,numofOriginDest))
     val splits = labeledPoints.randomSplit(Array(0.7, 0.3))
     val (trainingData, testData) = (splits(0), splits(1))
 
