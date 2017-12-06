@@ -158,6 +158,8 @@ object App {
       (point.label, prediction)
     }
     
+    labelsAndPredictions.take(50).foreach(println)
+    
     
     val testMSE = labelsAndPredictions.map{ case (v, p) => math.pow(v - p, 2) }.mean()
     val testRMSE = Math.sqrt(testMSE)
