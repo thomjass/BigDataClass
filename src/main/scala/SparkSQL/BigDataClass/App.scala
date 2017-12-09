@@ -22,11 +22,17 @@ object App {
   
   
   def main(args : Array[String]) {
+    
+    if(args.length != 1){
+      throw new Exception("You need to specify the path as parameter")
+    }
+    
      val spark = SparkSession.builder().appName("BigDataProject").master("local").getOrCreate()
+     
 
     val df = spark.read
       .option("header", true)
-      .csv("C:/Users/tjass/Documents/Big_Data/Projet_Spark_ML/2006.csv")
+      .csv(args(0))
       .drop("Year", "ArrTime", "ActualElapsedTime", "AirTime", "TaxiIn","FlightNum", "Diverted", "CarrierDelay","TailNum", "WeatherDelay", "NASDelay", "SecurityDelay", "LateAircraftDelay")
       .drop( "CancellationCode")
       .drop("DepTime", "CRSArrTime")
@@ -119,7 +125,7 @@ object App {
       val day_of_week = x.getAs[Double](16);
       val CRSDepTime = x.getAs[Double](17);
       val UC = x.getAs[Double](13);
-      val CRSElapsedTime = x.getAs[String](6).toDouble;
+      val CRSElapsedTime = x.getAs[String](5).toDouble;
       val DepDelay = x.getAs[String](7).toDouble;
       val Origin = x.getAs[Double](18);
       val Dest = x.getAs[Double](19);
@@ -151,14 +157,14 @@ object App {
     val (trainingData, testData) = (splits(0), splits(1))
 
     println("Starting RandomForest");
-    val model = RandomForest.trainRegressor(trainingData,categoricalFeaturesInfo,10,featureSubsetStrategy, impurity, maxDepth, maxBins,seed)
+    val model = RandomForest.trainRegressor(trainingData,categoricalFeaturesInfo,50,featureSubsetStrategy, impurity, maxDepth, maxBins,seed)
     println("Finish RandomForest")
     val labelsAndPredictions = testData.map { point =>
       val prediction = model.predict(point.features)
       (point.label, prediction)
     }
     
-    labelsAndPredictions.take(50).foreach(println)
+    labelsAndPredictions.take(20).foreach(println)
     
     
     val testMSE = labelsAndPredictions.map{ case (v, p) => math.pow(v - p, 2) }.mean()
